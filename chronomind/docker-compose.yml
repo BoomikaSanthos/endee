@@ -1,0 +1,51 @@
+version: "3.9"
+
+services:
+
+  endee:
+    image: endee-oss:latest
+    container_name: chronomind-endee
+    ports:
+      - "8082:8080"
+    environment:
+      NDD_NUM_THREADS: 0
+      NDD_AUTH_TOKEN: ""        # Set a token here + in backend env if desired
+    volumes:
+      - endee-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: chronomind-backend
+    ports:
+      - "8000:8000"
+    environment:
+      ENDEE_BASE_URL: "http://endee:8080/api/v1"
+      ENDEE_AUTH_TOKEN: ""      # Match with Endee's NDD_AUTH_TOKEN
+      ANTHROPIC_API_KEY: ""     # Optional — for AI-powered RAG answers
+      OPENAI_API_KEY: ""        # Optional alternative LLM
+    depends_on:
+      endee:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: chronomind-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  endee-data:
